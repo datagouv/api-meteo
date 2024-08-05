@@ -101,6 +101,15 @@ async def fetch_data(request, response_type="json"):
 
     if not num_postes or not anneemin or not anneemax:
         return web.HTTPBadRequest(reason="Missing required query parameters")
+    
+    try:
+        anneemin_int = int(anneemin)
+        anneemax_int = int(anneemax)
+    except ValueError:
+        return web.HTTPBadRequest(reason="anneemin and anneemax must be valid integers")
+
+    if (anneemax_int - anneemin_int > 5):
+        return web.HTTPBadRequest(reason="The range between anneemin and anneemax should not exceed 5 years")
 
     if anneemin == anneemax:
         anneemax = str(int(anneemin) + 1)
