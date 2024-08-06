@@ -68,23 +68,22 @@ async def get_total(
         session: ClientSession,
         url: str
     ):
-    res = await session.head(f"{url}&limit=1&", headers={"Prefer": "count=exact"})
-    total = process_total(res.headers.get("Content-Range"))
-    return total
+    url += "&select=count"
+    async with session.get(url) as res:
+        data = await res.json()
+        total = data[0]["count"]
+        return total
 
 
 async def get_resource_data_streamed(
         session: ClientSession,
         url: str,
+        total: int,
         accept_format: str = "text/csv",
     ):
-    total = await get_total(        
-        session,
-        url
-    )
-    for i in range(0, total, 5000):
+    for i in range(0, total, 50000):
         async with session.get(
-            url=f"{url}&limit=5000&offset={i}", headers={"Accept": accept_format}
+            url=f"{url}&limit=50000&offset={i}", headers={"Accept": accept_format}
         ) as res:
             async for chunk in res.content.iter_chunked(1024):
                 yield chunk
@@ -98,6 +97,7 @@ async def fetch_data(request, response_type="json"):
     anneemin = request.query.get("anneemin")
     anneemax = request.query.get("anneemax")
     columns = request.query.get("columns", "*")
+    anneemaxfile = f"-{anneemax}"
 
     if not num_postes or not anneemin or not anneemax:
         return web.HTTPBadRequest(reason="Missing required query parameters")
@@ -113,6 +113,7 @@ async def fetch_data(request, response_type="json"):
 
     if anneemin == anneemax:
         anneemax = str(int(anneemin) + 1)
+        anneemaxfile = ""
 
     if dataset not in CLIM_INFOS:
         return web.HTTPBadRequest(reason="Bad dataset provided")
@@ -132,16 +133,19 @@ async def fetch_data(request, response_type="json"):
     else:
         columns = ",".join(CLIM_INFOS[dataset]["accepted_columns"])
 
-    url = f"{PGREST_ENDPOINT}/{dataset}_{dep}?select={columns}{query_num_poste}&{CLIM_INFOS[dataset]['date_column']}:=gte.{anneemin}&{CLIM_INFOS[dataset]['date_column']}:=lt.{anneemax}"
+    url = f"{PGREST_ENDPOINT}/{dataset}_{dep}?{query_num_poste}&{CLIM_INFOS[dataset]['date_column']}:=gte.{anneemin}&{CLIM_INFOS[dataset]['date_column']}:=lt.{anneemax}"
+
+    total = await get_total(
+        request.app["csession"],
+        url
+    )
+    url += f"&select={columns}"
 
     if response_type == "json":
-        total = await get_total(
-            request.app["csession"],
-            url
-        )
         page = int(request.query.get("page", 1))
         offset = (page - 1) * 100
         url += f"&limit=100&offset={offset}"
+        
     
     async with request.app["csession"].get(url) as res:
         if response_type == "json":
@@ -165,13 +169,13 @@ async def fetch_data(request, response_type="json"):
         
         elif response_type == "csv":
             response_headers = {
-                "Content-Disposition": f'attachment; filename="clim-{dataset}-{dep}-{anneemin}-{anneemax}.csv"',
+                "Content-Disposition": f'attachment; filename="clim-{dataset}-{dep}-{anneemin}{anneemaxfile}.csv"',
                 "Content-Type": "text/csv",
             }
             response = web.StreamResponse(headers=response_headers)
             await response.prepare(request)
 
-            async for chunk in get_resource_data_streamed(request.app["csession"], url):
+            async for chunk in get_resource_data_streamed(request.app["csession"], url, total):
                 await response.write(chunk)
 
             await response.write_eof()
