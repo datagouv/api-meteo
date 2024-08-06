@@ -82,9 +82,9 @@ async def get_resource_data_streamed(
         session,
         url
     )
-    for i in range(0, total, 50000):
+    for i in range(0, total, 5000):
         async with session.get(
-            url=f"{url}&limit=50000&offset={i}", headers={"Accept": accept_format}
+            url=f"{url}&limit=5000&offset={i}", headers={"Accept": accept_format}
         ) as res:
             async for chunk in res.content.iter_chunked(1024):
                 yield chunk
