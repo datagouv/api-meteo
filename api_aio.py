@@ -118,9 +118,12 @@ async def fetch_data(request, response_type="json"):
         return web.HTTPBadRequest(reason="Bad dataset provided")
 
     if num_postes == "*":
-        query_num_poste = "&"
+        return web.HTTPBadRequest(reason="value * not permitted for num_postes")
     else:
-        query_num_poste = f"&num_poste=in.({num_postes})"
+        query_num_postes = []
+        for num_poste in num_postes.split(","):
+                query_num_postes.append(f"num_poste.eq.{num_poste}")
+        query_num_poste = f"&or=({",".join(query_num_postes)})"
     
     if columns != "*":
         for column in columns.split(","):
