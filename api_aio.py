@@ -1,10 +1,7 @@
 from aiohttp import web, ClientSession
 import json
 import os
-import logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 PGREST_ENDPOINT = f"http://{os.getenv('PGREST_ENDPOINT')}"
 API_ENDPOINT = f"http://{os.getenv('API_ENDPOINT')}"
 
@@ -136,7 +133,6 @@ async def fetch_data(request, response_type="json"):
         columns = ",".join(CLIM_INFOS[dataset]["accepted_columns"])
 
     url = f"{PGREST_ENDPOINT}/{dataset}_{dep}?select={columns}{query_num_poste}&{CLIM_INFOS[dataset]['date_column']}:=gte.{anneemin}&{CLIM_INFOS[dataset]['date_column']}:=lt.{anneemax}"
-    logger.info(url)
 
     if response_type == "json":
         total = await get_total(
