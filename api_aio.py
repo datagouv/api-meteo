@@ -54,6 +54,11 @@ CLIM_INFOS = {
 
 
 @routes.get("/")
+async def get_root(request):
+    return web.HTTPOk()
+
+
+@routes.get("/health/")
 async def get_health(request):
     return web.HTTPOk()
 
