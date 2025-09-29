@@ -138,7 +138,7 @@ async def fetch_data(request, response_type="json"):
     else:
         columns = ",".join(CLIM_INFOS[dataset]["accepted_columns"])
 
-    url = f"{PGREST_ENDPOINT}/{dataset}_{dep}?{query_num_poste}&{CLIM_INFOS[dataset]['date_column']}:=gte.{anneemin}&{CLIM_INFOS[dataset]['date_column']}:=lt.{anneemax}"
+    url = f"{PGREST_ENDPOINT}/{dataset}_{dep}?{query_num_poste}&{CLIM_INFOS[dataset]['date_column']}:=gte.{anneemin}&{CLIM_INFOS[dataset]['date_column']}:=lte.{anneemax}"
 
     total = await get_total(
         request.app["csession"],
