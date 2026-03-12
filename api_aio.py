@@ -102,23 +102,19 @@ async def fetch_data(request, response_type="json"):
     anneemin = request.query.get("anneemin")
     anneemax = request.query.get("anneemax")
     columns = request.query.get("columns", "*")
-    anneemaxfile = f"-{anneemax}"
+    anneemaxfile = f"-{anneemax}" if anneemin != anneemax else ""
 
     if not num_postes or not anneemin or not anneemax:
         return web.HTTPBadRequest(reason="Missing required query parameters")
     
     try:
         anneemin_int = int(anneemin)
-        anneemax_int = int(anneemax)
+        anneemax_int = int(anneemax) + 1  # we want to include everything in the max year
     except ValueError:
         return web.HTTPBadRequest(reason="anneemin and anneemax must be valid integers")
 
     if (anneemax_int - anneemin_int > 5):
         return web.HTTPBadRequest(reason="The range between anneemin and anneemax should not exceed 5 years")
-
-    if anneemin == anneemax:
-        anneemax = str(int(anneemin) + 1)
-        anneemaxfile = ""
 
     if dataset not in CLIM_INFOS:
         return web.HTTPBadRequest(reason="Bad dataset provided")
