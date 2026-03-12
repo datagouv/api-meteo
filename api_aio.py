@@ -109,12 +109,12 @@ async def fetch_data(request, response_type="json"):
     
     try:
         anneemin_int = int(anneemin)
-        anneemax_int = int(anneemax) + 1  # we want to include everything in the max year
+        anneemax_int = int(anneemax)
     except ValueError:
         return web.HTTPBadRequest(reason="anneemin and anneemax must be valid integers")
 
-    if (anneemax_int - anneemin_int > 5):
-        return web.HTTPBadRequest(reason="The range between anneemin and anneemax should not exceed 5 years")
+    if (anneemax_int - anneemin_int > 4):
+        return web.HTTPBadRequest(reason="Can't retrieve more than 5 years in one request")
 
     if dataset not in CLIM_INFOS:
         return web.HTTPBadRequest(reason="Bad dataset provided")
@@ -125,7 +125,7 @@ async def fetch_data(request, response_type="json"):
         query_num_postes = []
         for num_poste in num_postes.split(","):
                 query_num_postes.append(f"num_poste.eq.{num_poste}")
-        query_num_poste = f"&or=({','.join(query_num_postes)})"
+        query_num_poste = f"or=({','.join(query_num_postes)})"
     
     if columns != "*":
         for column in columns.split(","):
@@ -134,7 +134,11 @@ async def fetch_data(request, response_type="json"):
     else:
         columns = ",".join(CLIM_INFOS[dataset]["accepted_columns"])
 
-    url = f"{PGREST_ENDPOINT}/{dataset}_{dep}?{query_num_poste}&{CLIM_INFOS[dataset]['date_column']}:=gte.{anneemin}&{CLIM_INFOS[dataset]['date_column']}:=lte.{anneemax}"
+    url = (
+        f"{PGREST_ENDPOINT}/{dataset}_{dep}?{query_num_poste}"
+        f"&{CLIM_INFOS[dataset]['date_column']}=gte.{anneemin_int}"
+        f"&{CLIM_INFOS[dataset]['date_column']}=lte.{anneemax_int + 1}"  # we want to include everything in the max year
+    )
 
     total = await get_total(
         request.app["csession"],
