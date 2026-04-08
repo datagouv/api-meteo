@@ -91,7 +91,8 @@ async def fetch_data(request):
         return web.HTTPBadRequest(reason="Could not retrieve data for the requested period")
     date_col = CLIM_INFOS[table_group]["date_column"]
     content = ""
-    for idx, res in enumerate(of_interest):
+    wrote_headers = False
+    for res in of_interest:
         tabular_url = f"https://tabular-api.data.gouv.fr/api/resources/{res.id}/"
         profile = await request.app["csession"].get(tabular_url + "profile/")
         profile.raise_for_status()
@@ -104,8 +105,9 @@ async def fetch_data(request):
         )
         resp = await request.app["csession"].get(data_url)
         resp.raise_for_status()
-        if idx == 0:
+        if not wrote_headers:
             content += await resp.text()
+            wrote_headers = True
         else:
             text = await resp.text()
             content += "\n".join(text.split("\n")[1:])  # popping headers
