@@ -47,6 +47,8 @@ async def get_health(request):
 
 def get_file_period(title: str, has_suffix: bool) -> tuple[int, int]:
     period = title.split("_")[-2 if has_suffix else -1].split("-")
+    if period[0] == "avant":
+        period[0] = "1700"
     return int(period[0]), int(period[1])
 
 
