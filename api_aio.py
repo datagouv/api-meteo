@@ -53,8 +53,6 @@ def get_file_period(title: str, has_suffix: bool) -> tuple[int, int]:
 def format_period(year: str, date_col: str, date_col_type: str) -> str:
     if date_col_type == "date":
         return year + "-01-01"
-    elif date_col_type == "datetime":
-        return year + "-01-01T00:00:00"
     return year + "0" * (len(date_col) - len(year))
 
 
