@@ -115,13 +115,16 @@ async def fetch_data(request):
         )
         resp = await request.app["csession"].get(data_url)
         if not resp.ok:
-            return web.HTTPBadGateway(reason="Could not reach tabular-api")
+            return web.HTTPBadGateway(reason=f"Could not reach tabular-api for {res.id}")
+        r_content = await resp.text()
+        if len(r_content) < 5:
+            # skipping if no relevant data in this file
+            continue
         if not wrote_headers:
-            content += await resp.text()
+            content += r_content
             wrote_headers = True
         else:
-            text = await resp.text()
-            content += "\n".join(text.split("\n")[1:])  # popping headers
+            content += "\n".join(r_content.split("\n")[1:])  # popping headers
     return web.Response(
         text=content,
         headers={
