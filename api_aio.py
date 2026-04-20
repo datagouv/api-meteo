@@ -1,10 +1,8 @@
 import re
 
 from aiohttp import web, ClientSession
-from datagouv import Dataset
+from datagouv import Dataset, Resource
 
-
-TABULAR_BASE_URL = "https://tabular-api.data.gouv.fr/api"
 
 routes = web.RouteTableDef()
 
@@ -60,6 +58,29 @@ def format_period(year: str, date_col: str, date_col_type: str) -> str:
     return year + "0" * (len(date_col) - len(year))
 
 
+def build_condition(
+    res: Resource, table_group: str, dep: str, anneemin: str, anneemax: str
+) -> bool:
+    if res.type != "main":
+        # only keeping main resources
+        return False
+    if not re.search(f"departement_{dep}", res.title):
+        # département filter
+        return False
+    if table_group.startswith("base_quot"):
+        # special treatment for QUOT resources (two sub-groups)
+        if not re.search(
+            "_RR-T-Vent" if table_group == "base_quot_vent" else "autres-parametres",
+            res.title,
+        ):
+            return False
+    # finally filtering the time period
+    period_start, period_end = get_file_period(
+        res.title, table_group.startswith("base_quot")
+    )
+    return period_end >= int(anneemin) and period_start <= int(anneemax)
+
+
 async def fetch_data(request):
     table_group = request.match_info["dataset"]
     if table_group not in CLIM_INFOS:
@@ -76,18 +97,7 @@ async def fetch_data(request):
     of_interest = [
         res
         for res in dataset.resources
-        if res.type == "main"
-        and re.search(f"departement_{dep}", res.title)
-        and (
-            re.search(
-                "_RR-T-Vent" if table_group == "base_quot_vent" else "autres-parametres",
-                res.title,
-            )
-            if table_group.startswith("base_quot")
-            else True
-        )
-        and (period := get_file_period(res.title, table_group.startswith("base_quot")))[1] >= int(anneemin)
-        and period[0] <= int(anneemax)
+        if build_condition(res, table_group, dep, anneemin, anneemax)
     ]
     if not of_interest:
         return web.HTTPBadRequest(reason="Could not retrieve data for the requested period")
@@ -106,7 +116,8 @@ async def fetch_data(request):
             f"&{date_col}__less={format_period(str(int(anneemax) + 1), date_col, date_col_type)}"
         )
         resp = await request.app["csession"].get(data_url)
-        resp.raise_for_status()
+        if not resp.ok:
+            return web.HTTPBadGateway(reason="Could not reach tabular-api")
         if not wrote_headers:
             content += await resp.text()
             wrote_headers = True
