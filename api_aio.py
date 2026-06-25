@@ -7,33 +7,34 @@ from datagouv import Dataset, Resource
 routes = web.RouteTableDef()
 
 CLIM_INFOS = {
+    # each scope has MF and complementary datasets
     "base_mens": {
         "date_column": "AAAAMM",
-        "dataset_id": "6569b3d7d193b4daf2b43edc",
+        "dataset_ids": ["6569b3d7d193b4daf2b43edc", "6791045ba9116b0a49e6a720"],
     },
     "base_decad": {
         "date_column": "AAAAMM",
-        "dataset_id": "6569b4a48a4161faec6b2779",
+        "dataset_ids": ["6569b4a48a4161faec6b2779", "679105fab4d7bba9aa3fd4be"],
     },
     "base_decadagro": {
         "date_column": "AAAAMM",
-        "dataset_id": "6569af36ba0c3d2f9d4bf98c",
+        "dataset_ids": ["6569af36ba0c3d2f9d4bf98c", "67910646543edd2701937075"],
     },
     "base_quot_vent": {
         "date_column": "AAAAMMJJ",
-        "dataset_id": "6569b51ae64326786e4e8e1a",
+        "dataset_ids": ["6569b51ae64326786e4e8e1a", "679103e271c55090cfe86871"],
     },
     "base_quot_autres": {
         "date_column": "AAAAMMJJ",
-        "dataset_id": "6569b51ae64326786e4e8e1a",
+        "dataset_ids": ["6569b51ae64326786e4e8e1a", "679103e271c55090cfe86871"],
     },
     "base_hor": {
         "date_column": "AAAAMMJJHH",
-        "dataset_id": "6569b4473bedf2e7abad3b72",
+        "dataset_ids": ["6569b4473bedf2e7abad3b72", "6791055a6d553b689a5e2ba4"],
     },
     "base_min": {
         "date_column": "AAAAMMJJHHMN",
-        "dataset_id": "6569ad61106d1679c93cdf77",
+        "dataset_ids": ["6569ad61106d1679c93cdf77", "67910698aae7f4e70034cf7e"],
     }
 }
 
@@ -91,12 +92,14 @@ async def fetch_data(request):
         return web.HTTPBadRequest(reason="Missing required query parameters")
     anneemaxfile = f"-{anneemax}" if anneemin != anneemax else ""
     
-    dataset = Dataset(CLIM_INFOS[table_group]["dataset_id"])
-    of_interest = [
-        res
-        for res in dataset.resources
-        if build_condition(res, table_group, dep, anneemin, anneemax)
-    ]
+    of_interest = []
+    for dataset_id in CLIM_INFOS[table_group]["dataset_ids"]:
+        dataset = Dataset(dataset_id)
+        of_interest += [
+            res
+            for res in dataset.resources
+            if build_condition(res, table_group, dep, anneemin, anneemax)
+        ]
     if not of_interest:
         return web.HTTPBadRequest(reason="Could not retrieve data for the requested period")
     date_col = CLIM_INFOS[table_group]["date_column"]
@@ -113,9 +116,10 @@ async def fetch_data(request):
             f"&{date_col}__greater={format_period(anneemin, date_col, date_col_type)}"
             f"&{date_col}__less={format_period(str(int(anneemax) + 1), date_col, date_col_type)}"
         )
-        resp = await request.app["csession"].get(data_url)
+        resp = await request.app["csession"].get(data_url, timeout=30)
         if not resp.ok:
-            return web.HTTPBadGateway(reason=f"Could not reach tabular-api for {res.id}")
+            r_content = await resp.text()
+            return web.HTTPBadGateway(reason=f"Could not reach tabular-api for {res.id}: {r_content}")
         r_content = await resp.text()
         if len(r_content) < 5:
             # skipping if no relevant data in this file
