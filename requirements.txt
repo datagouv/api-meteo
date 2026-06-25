@@ -1,2 +1,2 @@
 aiohttp==3.10.3
-datagouv-client==0.2.3
+datagouv-client>=0.4.0
