@@ -1,3 +1,5 @@
 .env
 postgrest.conf
 0.0.0.0
+.vscode/
+__pycache__/
