@@ -4,4 +4,4 @@ postgrest.conf
 .vscode/
 __pycache__/
 .venv/
-uv.lock
+.python-version
