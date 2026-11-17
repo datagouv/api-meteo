@@ -5,8 +5,8 @@ Extraction en CSV des données de la base climatologique de Météo-France publi
 ## Lancement
 
 ```shell
-uv venv && uv pip sync requirements.txt
-.venv/bin/gunicorn api_aio:app_factory --bind 0.0.0.0:3030 --worker-class aiohttp.GunicornWebWorker --workers 4
+uv sync
+uv run gunicorn api_aio:app_factory --bind 0.0.0.0:3030 --worker-class aiohttp.GunicornWebWorker --workers 4
 ```
 
 ## Utilisation
@@ -15,12 +15,9 @@ uv venv && uv pip sync requirements.txt
 curl "http://localhost:3030/api/clim/base_mens/13/csv/?num_postes=13054001&anneemin=2022&anneemax=2022"
 ```
 
-`dataset` (ici `base_mens`) parmi `base_mens`, `base_decad`, `base_decadagro`, `base_quot_vent`, `base_quot_autres`, `base_hor`, `base_min`.
+- `dataset` (ici `base_mens`) : parmi `base_mens`, `base_decad`, `base_decadagro`, `base_quot_vent`, `base_quot_autres`, `base_hor`, `base_min`
+- `dep` (ici `13`) : code du département
+- `num_postes` : identifiant(s) de station, séparés par des virgules
+- `anneemin`, `anneemax` : période, bornes incluses
 
-## Dépendances
-
-Déclarées dans `pyproject.toml`, figées (avec hashes) dans `requirements.txt`. Après modification :
-
-```shell
-uv pip compile pyproject.toml --generate-hashes --universal -o requirements.txt
-```
+Tous les paramètres sont obligatoires.
