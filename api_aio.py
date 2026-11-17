@@ -5,6 +5,7 @@ from datagouv import Dataset, Resource
 
 
 routes = web.RouteTableDef()
+CSESSION = web.AppKey("csession", ClientSession)
 
 CLIM_INFOS = {
     # each scope has MF and complementary datasets
@@ -41,7 +42,7 @@ CLIM_INFOS = {
 
 @routes.get("/health/")
 async def get_health(request):
-    return web.HTTPOk()
+    raise web.HTTPOk()
 
 
 def get_file_period(title: str, has_suffix: bool) -> tuple[int, int]:
@@ -83,13 +84,13 @@ def build_condition(
 async def fetch_data(request):
     table_group = request.match_info["dataset"]
     if table_group not in CLIM_INFOS:
-        return web.HTTPBadRequest(reason=f"{table_group} is not a valid dataset")
+        raise web.HTTPBadRequest(reason=f"{table_group} is not a valid dataset")
     dep = request.match_info["dep"]
     num_postes = request.query.get("num_postes")
     anneemin = request.query.get("anneemin")
     anneemax = request.query.get("anneemax")
     if not dep or not num_postes or not anneemin or not anneemax:
-        return web.HTTPBadRequest(reason="Missing required query parameters")
+        raise web.HTTPBadRequest(reason="Missing required query parameters")
     anneemaxfile = f"-{anneemax}" if anneemin != anneemax else ""
     
     of_interest = []
@@ -101,13 +102,13 @@ async def fetch_data(request):
             if build_condition(res, table_group, dep, anneemin, anneemax)
         ]
     if not of_interest:
-        return web.HTTPBadRequest(reason="Could not retrieve data for the requested period")
+        raise web.HTTPBadRequest(reason="Could not retrieve data for the requested period")
     date_col = CLIM_INFOS[table_group]["date_column"]
     content = ""
     wrote_headers = False
     for res in of_interest:
         tabular_url = f"https://tabular-api.data.gouv.fr/api/resources/{res.id}/"
-        profile = await request.app["csession"].get(tabular_url + "profile/")
+        profile = await request.app[CSESSION].get(tabular_url + "profile/")
         profile.raise_for_status()
         profile = await profile.json()
         date_col_type = profile["profile"]["columns"][date_col]["python_type"]
@@ -116,10 +117,10 @@ async def fetch_data(request):
             f"&{date_col}__greater={format_period(anneemin, date_col, date_col_type)}"
             f"&{date_col}__less={format_period(str(int(anneemax) + 1), date_col, date_col_type)}"
         )
-        resp = await request.app["csession"].get(data_url, timeout=30)
+        resp = await request.app[CSESSION].get(data_url, timeout=30)
         if not resp.ok:
             r_content = await resp.text()
-            return web.HTTPBadGateway(reason=f"Could not reach tabular-api for {res.id}: {r_content}")
+            raise web.HTTPBadGateway(reason=f"Could not reach tabular-api for {res.id}: {r_content}")
         r_content = await resp.text()
         if len(r_content) < 5:
             # skipping if no relevant data in this file
@@ -145,10 +146,10 @@ async def get_data_csv(request):
 
 async def app_factory():
     async def on_startup(app):
-        app["csession"] = ClientSession()
+        app[CSESSION] = ClientSession()
 
     async def on_cleanup(app):
-        await app["csession"].close()
+        await app[CSESSION].close()
 
     app = web.Application()
     app.add_routes(routes)
@@ -159,7 +160,7 @@ async def app_factory():
 
 
 def run():
-    web.run_app(app_factory(), path="0.0.0.0", port="3030")
+    web.run_app(app_factory(), host="0.0.0.0", port=3030)
 
 
 if __name__ == "__main__":
