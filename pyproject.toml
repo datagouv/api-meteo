@@ -1,0 +1,15 @@
+[project]
+name = "api-meteo"
+version = "0.1.0"
+description = "API d'extraction des données climatologiques de Météo-France publiées sur data.gouv.fr"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.10.3",
+    "datagouv-client>=0.4.0",
+    "gunicorn>=23.0.0",
+]
+
+[tool.uv]
+# simple application, not a library to be packaged
+package = false
